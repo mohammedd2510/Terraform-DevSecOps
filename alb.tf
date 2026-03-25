@@ -1,21 +1,24 @@
 # ============================================================
 # ALB + LISTENER - Intentionally Insecure
 # ============================================================
-# BOTH tfsec & Checkov detect:
-#   - ALB listener using HTTP instead of HTTPS
-#   - ALB has no access logging enabled
-#   - ALB not dropping invalid headers
 #
-# CHECKOV additionally detects (relationship-based):
-#   - No aws_wafv2_web_acl_association resource linked to ALB
-#     (Checkov checks if a WAF ACL is associated - cross-resource)
-#   - No HTTPS listener resource with SSL certificate
-#     (Checkov checks for a companion aws_lb_listener on 443
-#      with an aws_acm_certificate - multi-resource relationship)
-#   - ALB not configured with deletion protection
-#   - Security group attached to ALB allows all inbound
-#     (Checkov traces the SG referenced by ALB and inspects
-#      its rules - a cross-resource relationship check)
+# tfsec detects:
+#   - aws-elb-http-not-used       (CRITICAL) Listener uses HTTP instead of HTTPS
+#   - aws-elb-alb-not-public      (HIGH)     Load balancer is exposed publicly
+#   - aws-elb-drop-invalid-headers (HIGH)     ALB not set to drop invalid headers
+#
+# Checkov detects (overlapping with tfsec):
+#   - CKV_AWS_2    ALB protocol is HTTPS
+#   - CKV_AWS_131  ALB drops HTTP headers
+#   - CKV_AWS_91   ELBv2 has access logging enabled
+#   - CKV_AWS_150  Load Balancer has deletion protection enabled
+#
+# Checkov-only (cross-resource relationship checks):
+#   - CKV2_AWS_28  Checks for a separate aws_wafv2_web_acl_association resource
+#                  linked to the ALB (public ALB protected by WAF)
+#   - CKV2_AWS_20  Checks for a separate aws_lb_listener on port 443
+#                  that redirects HTTP to HTTPS (cross-listener relationship)
+#   - CKV_AWS_103  Checks that load balancer listener is using TLS 1.2
 # ============================================================
 
 resource "aws_lb" "web" {
