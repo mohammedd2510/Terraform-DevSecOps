@@ -23,12 +23,24 @@ resource "aws_lb" "web" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.web.id]
+  subnets            = data.aws_subnets.default.ids
 
   enable_deletion_protection = false
   drop_invalid_header_fields = false
 
   tags = {
     Name = "web-alb"
+  }
+}
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
   }
 }
 
