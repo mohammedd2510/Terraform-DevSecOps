@@ -1,22 +1,28 @@
 # ============================================================
 # SECURITY GROUP + EC2 - Intentionally Insecure
 # ============================================================
-# BOTH tfsec & Checkov detect:
-#   - Ingress open to 0.0.0.0/0 on port 22 (SSH)
-#   - Egress open to 0.0.0.0/0 (unrestricted outbound)
-#   - No description on security group rule
 #
-# CHECKOV additionally detects (relationship-based):
-#   - EC2 instance has no IAM instance profile attached
-#     (checks that aws_instance references an iam_instance_profile)
-#   - EC2 instance not launched inside a VPC subnet
-#     (checks that aws_instance has a subnet_id)
-#   - EC2 instance has no metadata service v2 (IMDSv2) enforced
-#     (checks for metadata_options block with http_tokens = required)
-#   - EC2 uses default security group rather than a purpose-built one
-#     (Checkov cross-checks SG attachment patterns)
-#   - EBS root volume not encrypted
-#     (checks root_block_device.encrypted = true)
+# tfsec detects:
+#   - aws-ec2-no-public-ingress-sgr             (CRITICAL) Ingress open to 0.0.0.0/0 on port 22
+#   - aws-ec2-no-public-ingress-sgr             (CRITICAL) Ingress open to 0.0.0.0/0 on port 443
+#   - aws-ec2-no-public-egress-sgr              (CRITICAL) Egress open to 0.0.0.0/0
+#   - aws-ec2-enforce-http-token-imds           (HIGH)     Instance does not require IMDSv2 token
+#   - aws-ec2-enable-at-rest-encryption         (HIGH)     Root block device is not encrypted
+#   - aws-ec2-add-description-to-security-group (LOW)      Security group uses default description
+#   - aws-ec2-add-description-to-security-group-rule (LOW) Security group rules have no description (x3)
+#
+# Checkov detects (overlapping with tfsec):
+#   - CKV_AWS_24   No security groups allow ingress from 0.0.0.0/0 to port 22
+#   - CKV_AWS_382  No security groups allow egress from 0.0.0.0/0 to port -1
+#   - CKV_AWS_23   Every security group and rule has a description
+#   - CKV_AWS_79   Instance Metadata Service Version 1 is not enabled (IMDSv2)
+#   - CKV_AWS_8    EBS data is securely encrypted
+#
+# Checkov-only (cross-resource and deeper attribute checks):
+#   - CKV2_AWS_41  Checks that an IAM role is attached to EC2 instance
+#                  (looks for iam_instance_profile linking to aws_iam_instance_profile)
+#   - CKV_AWS_135  Checks that EC2 is EBS optimized (ebs_optimized = true)
+#   - CKV_AWS_126  Checks that detailed monitoring is enabled (monitoring = true)
 # ============================================================
 
 resource "aws_security_group" "web" {
@@ -45,15 +51,10 @@ resource "aws_security_group" "web" {
 }
 
 resource "aws_instance" "web" {
-  ami           = "ami-0c55b159cbfafe1f0"
+  ami           = "ami-02dfbd4ff395f2a1b"
   instance_type = "t3.micro"
 
   vpc_security_group_ids = [aws_security_group.web.id]
-
-  # No iam_instance_profile    -> Checkov CKV_AWS_79
-  # No subnet_id               -> Checkov CKV2_AWS_41
-  # No metadata_options block   -> Checkov CKV_AWS_79 (IMDSv2)
-  # No root_block_device encrypt -> Checkov CKV_AWS_8
 
   tags = {
     Name = "web-server"
